@@ -1,0 +1,96 @@
+name: volatilegui
+
+services:
+  # ---------------------------------------------------------------------------
+  # Volatility 3 execution engine (Python 3)
+  # ---------------------------------------------------------------------------
+  vol3:
+    build:
+      context: ./runners/vol3
+    image: volatilegui/vol3-runner
+    container_name: mf-vol3
+    restart: unless-stopped
+    environment:
+      RUNNER_PORT: "9003"
+      VOL3_SYMBOLS: "/symbols"
+    volumes:
+      - ./evidence:/evidence
+      - ./symbols:/symbols
+      - vol3_cache:/root/.cache/volatility3
+      - artifacts:/artifacts
+    expose:
+      - "9003"
+    ports:
+      - "127.0.0.1:9003:9003"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:9003/health',timeout=5).status==200 else 1)"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  # ---------------------------------------------------------------------------
+  # Volatility 2 execution engine (Python 2.7 - isolated on purpose)
+  # ---------------------------------------------------------------------------
+  vol2:
+    build:
+      context: ./runners/vol2
+    image: volatilegui/vol2-runner
+    container_name: mf-vol2
+    restart: unless-stopped
+    environment:
+      RUNNER_PORT: "9002"
+      VOL2_PLUGINS: "/profiles"
+    volumes:
+      - ./evidence:/evidence
+      - ./profiles:/profiles
+      - artifacts:/artifacts
+    expose:
+      - "9002"
+    ports:
+      - "127.0.0.1:9002:9002"
+    healthcheck:
+      test: ["CMD", "python2", "-c", "import urllib2,sys; sys.exit(0 if urllib2.urlopen('http://127.0.0.1:9002/health',timeout=5).getcode()==200 else 1)"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  # ---------------------------------------------------------------------------
+  # Web platform (FastAPI + HTMX)
+  # ---------------------------------------------------------------------------
+  web:
+    build:
+      context: ./web
+    image: volatilegui/web
+    container_name: mf-web
+    restart: unless-stopped
+    depends_on:
+      - vol2
+      - vol3
+    environment:
+      MF_DATA_DIR: "/data"
+      MF_EVIDENCE_DIR: "/evidence"
+      MF_ARTIFACT_DIR: "/artifacts"
+      MF_VOL3_URL: "http://vol3:9003"
+      MF_VOL2_URL: "http://vol2:9002"
+      MF_WORKERS: "${MF_WORKERS:-2}"
+      MF_MAX_UPLOAD_GB: "${MF_MAX_UPLOAD_GB:-64}"
+      MF_SECRET: "${MF_SECRET:-change-me-in-env}"
+      TZ: "${TZ:-UTC}"
+    volumes:
+      - ./evidence:/evidence
+      - ./data:/data
+      - artifacts:/artifacts
+    ports:
+      - "${MF_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health',timeout=5).status==200 else 1)"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 25s
+
+volumes:
+  vol3_cache:
+  artifacts:

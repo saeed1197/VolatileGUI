@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ code }} · {{ APP_NAME }}{% endblock %}
+{% block heading %}{{ title }}{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="empty">
+    <span class="big">{{ code }}</span>
+    {{ message }}
+    <div class="mt"><a class="btn" href="/">← Back to the dashboard</a></div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,34 @@
+# Force LF line endings for everything text-ish, regardless of the
+# platform/editor/git-config that checked it out. This project is meant to
+# run identically on Windows and Ubuntu; the one thing that silently breaks
+# that is Windows git converting LF -> CRLF on checkout (core.autocrlf=true
+# is the default in Git for Windows). A shell script with CRLF line endings
+# fails immediately in bash ("bad interpreter"/"$'\r': command not found"),
+# and a Makefile recipe line with a trailing \r can misbehave too.
+#
+# This does not affect anything that runs *inside* the Docker containers
+# (those are Linux images regardless of host OS) — it only matters for files
+# you might run directly from a checkout: the helper scripts and Makefile.
+
+* text=auto eol=lf
+
+*.sh    text eol=lf
+*.mk    text eol=lf
+Makefile text eol=lf
+Dockerfile text eol=lf
+*.py    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.env.example text eol=lf
+*.md    text eol=lf
+
+# Sample/forensic image formats people might accidentally add to the repo -
+# never touch these as text.
+*.raw binary
+*.mem binary
+*.vmem binary
+*.dmp binary
+*.lime binary
+*.core binary
+*.e01 binary
+*.001 binary

@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Run history · {{ APP_NAME }}{% endblock %}
+{% block heading %}Run history{% endblock %}
+{% block crumb %}{{ pager['total'] | num }} run(s){% if queue_depth %} · {{ queue_depth }} queued{% endif %}{% endblock %}
+
+{% block content %}
+
+<div class="card mb">
+  <form method="get" class="row wrap" style="gap:10px">
+    <label style="width:180px;margin:0">
+      <select name="status">
+        <option value="">All statuses</option>
+        {% for st in ['queued','running','success','empty','failed','cancelled'] %}
+          <option value="{{ st }}" {{ 'selected' if st == status }}>{{ st }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label style="width:170px;margin:0">
+      <select name="engine">
+        <option value="">Both engines</option>
+        <option value="vol3" {{ 'selected' if engine=='vol3' }}>Volatility 3</option>
+        <option value="vol2" {{ 'selected' if engine=='vol2' }}>Volatility 2</option>
+      </select>
+    </label>
+    <label style="width:230px;margin:0">
+      <select name="evidence_id">
+        <option value="">All evidence</option>
+        {% for eid, e in evidence_map.items() %}
+          <option value="{{ eid }}" {{ 'selected' if eid == evidence_id }}>{{ e.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <input type="search" name="q" value="{{ q }}" placeholder="Plugin name…" style="width:220px">
+    <button class="btn">Filter</button>
+    <a class="btn ghost" href="/jobs">Reset</a>
+    <span class="spacer"></span>
+    <a class="btn ghost" href="/compare{% if evidence_id %}?evidence_id={{ evidence_id }}{% endif %}">⇄ Compare two runs</a>
+  </form>
+</div>
+
+<div class="card pad0">
+  <div class="tablewrap">
+  {% if pager['items'] %}
+  <table class="t">
+    <thead><tr>
+      <th>#</th><th>Plugin</th><th>Evidence</th><th>Engine</th><th>Status</th>
+      <th class="right">Rows</th><th class="right">Time</th><th>When</th><th></th>
+    </tr></thead>
+    <tbody>
+    {% for j in pager['items'] %}
+      <tr>
+        <td class="mono tiny faint">{{ j.id }}</td>
+        <td>
+          <a href="/jobs/{{ j.id }}">{{ j.plugin_label or j.plugin }}</a>
+          <div class="tiny faint mono">{{ j.plugin }}</div>
+          {% if j.error %}<div class="tiny" style="color:var(--crit)">{{ j.error[:140] }}</div>{% endif %}
+        </td>
+        <td class="small">
+          {% set e = evidence_map.get(j.evidence_id) %}
+          {% if e %}<a href="/evidence/{{ e.id }}">{{ e.name }}</a>{% else %}<span class="faint">deleted</span>{% endif %}
+        </td>
+        <td><span class="badge eng-{{ j.engine }}">{{ j.engine }}</span></td>
+        <td>
+          <span class="{{ j.status | status_class }}">{{ j.status }}</span>
+          {% if j.status == 'running' %}
+            <div class="bar mt-s" style="width:90px"><i style="width:{{ j.progress or 0 }}%"></i></div>
+          {% endif %}
+        </td>
+        <td class="right mono">{{ j.row_count | num }}</td>
+        <td class="right mono tiny">{{ j.duration | duration }}</td>
+        <td class="tiny faint nowrap">{{ j.created_at | ago }}</td>
+        <td class="right nowrap">
+          {% if j.status in ('queued','running') %}
+            <form method="post" action="/api/jobs/{{ j.id }}/cancel" class="inline-form">
+              <button class="btn sm danger">Cancel</button></form>
+          {% else %}
+            <form method="post" action="/api/jobs/{{ j.id }}/rerun" class="inline-form">
+              <button class="btn sm ghost">Re-run</button></form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <div class="empty"><span class="big">⏱</span>No runs match these filters.</div>
+  {% endif %}
+  </div>
+
+  {% if pager['pages'] > 1 %}
+  <div class="pager" style="padding:12px 18px">
+    <span>Showing {{ pager['start'] }}–{{ pager['end'] }} of {{ pager['total'] | num }}</span>
+    <span class="spacer"></span>
+    {% if pager['has_prev'] %}<a class="btn sm" href="?page={{ pager['page']-1 }}&status={{ status }}&engine={{ engine }}&q={{ q }}">← Prev</a>{% endif %}
+    <span class="mono">{{ pager['page'] }} / {{ pager['pages'] }}</span>
+    {% if pager['has_next'] %}<a class="btn sm" href="?page={{ pager['page']+1 }}&status={{ status }}&engine={{ engine }}&q={{ q }}">Next →</a>{% endif %}
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  attachJobsStream(function (d) { if (d.final) setTimeout(function(){ location.reload(); }, 1500); });
+</script>
+{% endblock %}

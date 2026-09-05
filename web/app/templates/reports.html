@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Reports · {{ APP_NAME }}{% endblock %}
+{% block heading %}Reports{% endblock %}
+{% block crumb %}{{ reports|length }} generated{% endblock %}
+
+{% block content %}
+
+<div class="grid g2 mb">
+  <div class="card">
+    <h3>Generate a new report</h3>
+    <form method="post" action="/api/reports/generate">
+      <label class="f"><span>Evidence</span>
+        <select name="evidence_id" required>
+          {% for e in evidence %}<option value="{{ e.id }}">{{ e.name }} — {{ e.filename }}</option>{% endfor %}
+        </select></label>
+      <label class="f"><span>Format</span>
+        <select name="format">
+          <option value="html">HTML — full analyst report</option>
+          <option value="pdf">PDF — printable, shareable</option>
+          <option value="json">JSON — every row, machine readable</option>
+          <option value="zip">ZIP bundle — report + per-plugin CSVs + logs</option>
+        </select></label>
+      <label class="f"><span>Rows per plugin table</span>
+        <input type="number" name="max_rows" value="300" min="10" max="20000"></label>
+      <label class="checkline mb">
+        <input type="checkbox" name="include_empty" value="1"> Include runs that returned no rows</label>
+      <button class="btn primary">Generate</button>
+    </form>
+    {% if not evidence %}
+      <div class="banner warn mt small"><span>⚠</span><span>Register some evidence first.</span></div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h3>What goes into a report</h3>
+    <ul class="small muted" style="line-height:1.75;padding-left:18px;margin:0">
+      <li><strong>Cover &amp; chain of custody</strong> — file name, size, MD5/SHA-256,
+        acquisition time, detected OS and profile.</li>
+      <li><strong>Executive summary</strong> — risk score, severity breakdown, and the
+        headline findings in plain language.</li>
+      <li><strong>Triage findings</strong> — every indicator with its rule ID, the row
+        that triggered it, and the recommended next step.</li>
+      <li><strong>Plugin output</strong> — one table per run, with the exact command
+        line that produced it so the work is reproducible.</li>
+      <li><strong>Execution log</strong> (ZIP bundle only) — raw stdout/stderr per run.</li>
+    </ul>
+    <hr class="sep">
+    <p class="tiny faint" style="margin:0">
+      PDF export uses WeasyPrint inside the web container. If PDF fails, generate HTML
+      and print to PDF from the browser — the report stylesheet has a print mode.
+    </p>
+  </div>
+</div>
+
+<div class="card pad0">
+  <div class="card-head"><h3>Generated reports</h3></div>
+  {% if reports %}
+  <div class="tablewrap"><table class="t">
+    <thead><tr><th>Title</th><th>Evidence</th><th>Format</th><th class="right">Size</th>
+      <th>Created</th><th></th></tr></thead>
+    <tbody>
+    {% for r in reports %}
+      <tr>
+        <td><a href="/api/reports/{{ r.id }}/download">{{ r.title }}</a>
+            <div class="tiny faint mono">{{ r.path.split('/')[-1] }}</div></td>
+        <td class="small">
+          {% set e = evidence_map.get(r.evidence_id) %}
+          {% if e %}<a href="/evidence/{{ e.id }}">{{ e.name }}</a>{% else %}<span class="faint">—</span>{% endif %}
+        </td>
+        <td><span class="badge os">{{ r.fmt }}</span></td>
+        <td class="right mono tiny">{{ r.size | bytes }}</td>
+        <td class="tiny faint">{{ r.created_at | dt }}</td>
+        <td class="right nowrap">
+          <a class="btn sm" href="/api/reports/{{ r.id }}/download">⤓</a>
+          <form method="post" action="/api/reports/{{ r.id }}/delete" class="inline-form">
+            <button class="btn sm danger">✕</button></form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}
+    <div class="empty"><span class="big">🖹</span>No reports yet.</div>
+  {% endif %}
+</div>
+
+{% endblock %}

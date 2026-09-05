@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Compare runs · {{ APP_NAME }}{% endblock %}
+{% block heading %}Compare two runs{% endblock %}
+{% block crumb %}differential analysis{% endblock %}
+
+{% block content %}
+
+<div class="card mb">
+  <p class="small muted" style="margin-top:0">
+    Diff any two completed runs — the same plugin before and after an event, the same
+    plugin on two images, or <strong>the same artefact seen by both engines</strong>
+    (for example <code>pslist</code> on Volatility 2 versus <code>windows.pslist.PsList</code>
+    on Volatility 3). Rows present on only one side are what you usually care about.
+  </p>
+  <form method="get" class="grid g2">
+    <label class="f" style="margin:0"><span>Run A (baseline)</span>
+      <select name="a">
+        <option value="">— select —</option>
+        {% for j in candidates %}
+        <option value="{{ j.id }}" {{ 'selected' if job_a and j.id == job_a.id }}>
+          #{{ j.id }} · {{ j.engine }} · {{ j.plugin_label or j.plugin }} ·
+          {{ evidence_map[j.evidence_id].name if j.evidence_id in evidence_map else '?' }} ·
+          {{ j.row_count }} rows
+        </option>
+        {% endfor %}
+      </select></label>
+    <label class="f" style="margin:0"><span>Run B (comparison)</span>
+      <select name="b">
+        <option value="">— select —</option>
+        {% for j in candidates %}
+        <option value="{{ j.id }}" {{ 'selected' if job_b and j.id == job_b.id }}>
+          #{{ j.id }} · {{ j.engine }} · {{ j.plugin_label or j.plugin }} ·
+          {{ evidence_map[j.evidence_id].name if j.evidence_id in evidence_map else '?' }} ·
+          {{ j.row_count }} rows
+        </option>
+        {% endfor %}
+      </select></label>
+    <div><button class="btn primary">⇄ Compare</button></div>
+  </form>
+</div>
+
+{% if diff %}
+<div class="grid g4 mb">
+  <div class="card stat"><span class="k">Only in A</span>
+    <span class="v" style="color:var(--high)">{{ diff.counts.only_a | num }}</span>
+    <span class="sub">#{{ job_a.id }} {{ job_a.plugin_label }}</span></div>
+  <div class="card stat"><span class="k">Only in B</span>
+    <span class="v" style="color:var(--crit)">{{ diff.counts.only_b | num }}</span>
+    <span class="sub">#{{ job_b.id }} {{ job_b.plugin_label }}</span></div>
+  <div class="card stat"><span class="k">Changed</span>
+    <span class="v" style="color:var(--med)">{{ diff.counts.changed | num }}</span>
+    <span class="sub">same key, different values</span></div>
+  <div class="card stat"><span class="k">Identical</span>
+    <span class="v" style="color:var(--ok)">{{ diff.counts.same | num }}</span>
+    <span class="sub">unchanged rows</span></div>
+</div>
+
+{% if diff.counts.only_b %}
+<div class="card pad0 mb">
+  <div class="card-head"><h3 style="color:var(--crit)">Present only in B (#{{ job_b.id }})</h3></div>
+  <div class="tablewrap" style="max-height:420px"><table class="t mono dense">
+    <thead><tr>{% for c in diff.columns_b %}<th>{{ c }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for row in diff.only_b[:400] %}
+      <tr class="flagged">{% for cell in row %}<td>{{ cell | highlight | safe }}</td>{% endfor %}</tr>
+    {% endfor %}</tbody>
+  </table></div>
+</div>
+{% endif %}
+
+{% if diff.counts.only_a %}
+<div class="card pad0 mb">
+  <div class="card-head"><h3 style="color:var(--high)">Present only in A (#{{ job_a.id }})</h3></div>
+  <div class="tablewrap" style="max-height:420px"><table class="t mono dense">
+    <thead><tr>{% for c in diff.columns_a %}<th>{{ c }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for row in diff.only_a[:400] %}
+      <tr>{% for cell in row %}<td>{{ cell | highlight | safe }}</td>{% endfor %}</tr>
+    {% endfor %}</tbody>
+  </table></div>
+</div>
+{% endif %}
+
+{% if diff.counts.changed %}
+<div class="card pad0">
+  <div class="card-head"><h3>Changed rows</h3></div>
+  <div class="tablewrap" style="max-height:420px"><table class="t mono dense">
+    <thead><tr><th>Side</th>{% for c in diff.columns_a %}<th>{{ c }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for ch in diff.changed[:200] %}
+      <tr><td class="faint">A</td>{% for cell in ch.a %}<td>{{ cell | highlight | safe }}</td>{% endfor %}</tr>
+      <tr class="flagged"><td class="faint">B</td>{% for cell in ch.b %}<td>{{ cell | highlight | safe }}</td>{% endfor %}</tr>
+    {% endfor %}</tbody>
+  </table></div>
+</div>
+{% endif %}
+
+{% elif job_a or job_b %}
+  <div class="card"><div class="empty">Select both runs to see the difference.</div></div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Memory analysis report — {{ evidence.name }}</title>
+<style>
+  @page { size: A4; margin: 16mm 14mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "DejaVu Sans", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 10.5pt; line-height: 1.5; color: #16202c; background: #fff;
+    margin: 0 auto; max-width: 1080px; padding: 26px;
+  }
+  h1 { font-size: 21pt; margin: 0 0 4px; letter-spacing: -.3px; }
+  h2 { font-size: 13pt; margin: 26px 0 10px; padding-bottom: 5px;
+       border-bottom: 2px solid #16202c; }
+  h3 { font-size: 11pt; margin: 18px 0 6px; }
+  .sub { color: #5b6b7d; font-size: 10pt; }
+  .cover { border-bottom: 3px solid #16202c; padding-bottom: 16px; margin-bottom: 22px; }
+  .cols { display: flex; gap: 22px; flex-wrap: wrap; }
+  .cols > div { flex: 1 1 260px; }
+  table { width: 100%; border-collapse: collapse; font-size: 8.6pt; margin: 8px 0 14px; }
+  th { background: #eef2f6; text-align: left; padding: 5px 7px; border: 1px solid #cdd6e0;
+       font-size: 8pt; text-transform: uppercase; letter-spacing: .4px; }
+  td { padding: 4px 7px; border: 1px solid #dfe6ee; vertical-align: top;
+       word-break: break-word; }
+  tr:nth-child(even) td { background: #fafcfe; }
+  dl.kv { display: grid; grid-template-columns: 150px 1fr; gap: 3px 12px; font-size: 9.5pt; margin: 0; }
+  dl.kv dt { color: #5b6b7d; }
+  dl.kv dd { margin: 0; word-break: break-all; }
+  .mono, code, pre { font-family: "DejaVu Sans Mono", Consolas, monospace; }
+  pre { background: #f5f7fa; border: 1px solid #dfe6ee; padding: 8px; font-size: 8pt;
+        overflow-x: auto; white-space: pre-wrap; word-break: break-word; }
+  .sev { display: inline-block; padding: 1px 7px; border-radius: 3px; font-size: 8pt;
+         font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #fff; }
+  .sev-critical { background: #c62348; }
+  .sev-high     { background: #e07800; }
+  .sev-medium   { background: #b48800; }
+  .sev-low      { background: #1f7ea8; }
+  .sev-info     { background: #6b7c8f; }
+  .sev-clean    { background: #1f8a55; }
+  .finding { border: 1px solid #dfe6ee; border-left: 4px solid #6b7c8f;
+             padding: 9px 12px; margin-bottom: 9px; page-break-inside: avoid; }
+  .finding.f-critical { border-left-color: #c62348; background: #fdf3f5; }
+  .finding.f-high     { border-left-color: #e07800; background: #fff8f0; }
+  .finding.f-medium   { border-left-color: #b48800; background: #fffcf0; }
+  .finding .ti { font-weight: 700; margin: 4px 0; }
+  .finding .de { font-size: 9pt; color: #37485c; white-space: pre-wrap; }
+  .finding .re { font-size: 9pt; color: #1f7a52; margin-top: 5px; }
+  .score { font-size: 30pt; font-weight: 800; line-height: 1; }
+  .box { border: 1px solid #dfe6ee; padding: 12px 14px; border-radius: 5px; }
+  .pillrow { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .section { page-break-inside: avoid; }
+  .foot { margin-top: 34px; padding-top: 10px; border-top: 1px solid #dfe6ee;
+          font-size: 8.5pt; color: #7a8a9c; }
+  .nav { margin-bottom: 18px; }
+  .nav a { color: #0b57d0; text-decoration: none; font-size: 9.5pt; }
+  @media print { .nav { display: none; } }
+</style>
+</head>
+<body>
+
+{% if not standalone %}
+<div class="nav">
+  <a href="/evidence/{{ evidence.id }}">← back to evidence</a> ·
+  <a href="javascript:window.print()">print / save as PDF</a>
+</div>
+{% endif %}
+
+<div class="cover">
+  <h1>Memory Forensics Analysis Report</h1>
+  <div class="sub">
+    {{ evidence.name }} · generated {{ generated_at.strftime('%Y-%m-%d %H:%M') }} UTC
+    by {{ app.name }} v{{ app.version }}
+    {% if case %} · case: {{ case.name }}{% endif %}
+  </div>
+</div>
+
+<h2>1 · Evidence &amp; chain of custody</h2>
+<div class="cols">
+  <div>
+    <dl class="kv">
+      <dt>Image name</dt><dd>{{ evidence.name }}</dd>
+      <dt>File</dt><dd class="mono">{{ evidence.filename }}</dd>
+      <dt>Size</dt><dd>{{ evidence.size | bytes }} ({{ evidence.size | num }} bytes)</dd>
+      <dt>Registered</dt><dd>{{ evidence.created_at | dt }} UTC</dd>
+      <dt>Source</dt><dd>{{ evidence.source }}</dd>
+    </dl>
+  </div>
+  <div>
+    <dl class="kv">
+      <dt>SHA-256</dt><dd class="mono">{{ evidence.sha256 or 'not computed' }}</dd>
+      <dt>MD5</dt><dd class="mono">{{ evidence.md5 or 'not computed' }}</dd>
+      <dt>Detected OS</dt><dd>{{ evidence.detected_os or 'not identified' }}</dd>
+      <dt>Vol2 profile</dt><dd class="mono">{{ evidence.vol2_profile or 'n/a' }}</dd>
+      <dt>Engines used</dt><dd>{{ stats.engines | join(', ') or 'none' }}</dd>
+    </dl>
+  </div>
+</div>
+{% if evidence.notes %}
+  <h3>Analyst notes</h3>
+  <div class="box">{{ evidence.notes }}</div>
+{% endif %}
+
+<h2>2 · Executive summary</h2>
+<div class="cols">
+  <div class="box" style="flex:0 0 190px;text-align:center">
+    <div class="score" style="color:{% if risk_band=='critical' %}#c62348{% elif risk_band=='high' %}#e07800{% elif risk_band=='medium' %}#b48800{% elif risk_band=='low' %}#1f7ea8{% else %}#1f8a55{% endif %}">
+      {{ risk_score }}
+    </div>
+    <div class="sub">risk score / 100</div>
+    <div class="pillrow" style="justify-content:center">
+      <span class="sev sev-{{ risk_band }}">{{ risk_band }}</span>
+    </div>
+  </div>
+  <div>
+    <p style="margin-top:0">
+      {{ stats.total_jobs }} plugin run(s) were executed against this image
+      ({{ stats.successful }} successful, {{ stats.failed }} failed,
+      {{ stats.empty }} returned no data), producing
+      {{ stats.rows | num }} artefact rows in {{ stats.runtime | duration }} of engine time.
+      The automated triage rules raised <strong>{{ findings | length }}</strong> finding(s).
+    </p>
+    <div class="pillrow">
+      {% for sev in ['critical','high','medium','low','info'] %}
+        {% if severity_counts.get(sev) %}
+          <span class="sev sev-{{ sev }}">{{ severity_counts[sev] }} {{ sev }}</span>
+        {% endif %}
+      {% endfor %}
+      {% if not findings %}<span class="sev sev-clean">no indicators raised</span>{% endif %}
+    </div>
+    <p class="sub" style="margin-bottom:0">
+      Findings are automated indicators, not conclusions. Each one names the rule that
+      produced it and the row that triggered it so it can be independently verified.
+    </p>
+  </div>
+</div>
+
+{% if findings %}
+<h2>3 · Findings</h2>
+{% for f in findings %}
+<div class="finding f-{{ f.severity }}">
+  <span class="sev sev-{{ f.severity }}">{{ f.severity }}</span>
+  <span class="sub" style="margin-left:6px">{{ f.category }} · {{ f.rule_id }}
+    {% if f.state != 'open' %}· {{ f.state }}{% endif %}</span>
+  <div class="ti">{{ f.title }}</div>
+  {% if f.detail %}<div class="de">{{ f.detail }}</div>{% endif %}
+  {% if f.recommendation %}<div class="re">Recommended action: {{ f.recommendation }}</div>{% endif %}
+</div>
+{% endfor %}
+{% endif %}
+
+<h2>{{ '4' if findings else '3' }} · Plugin output</h2>
+{% for sec in sections %}
+<div class="section">
+  <h3>
+    {{ sec.job.plugin_label or sec.job.plugin }}
+    <span class="sub">— {{ sec.job.engine }} · {{ sec.job.status }} ·
+      {{ sec.job.row_count | num }} rows · {{ sec.job.duration | duration }}</span>
+  </h3>
+  {% if sec.meta.description %}<div class="sub">{{ sec.meta.description }}</div>{% endif %}
+  {% if sec.job.command %}<pre>{{ sec.job.command }}</pre>{% endif %}
+  {% if sec.job.error %}<pre style="color:#c62348">{{ sec.job.error }}</pre>{% endif %}
+
+  {% if sec.columns and sec.rows %}
+    <table>
+      <thead><tr>{% for c in sec.columns %}<th>{{ c }}</th>{% endfor %}</tr></thead>
+      <tbody>
+        {% for row in sec.rows %}
+        <tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if sec.truncated %}
+      <div class="sub">… {{ sec.truncated | num }} further row(s) omitted from this
+        report. The full result is available in the JSON / ZIP export.</div>
+    {% endif %}
+  {% elif sec.text %}
+    <pre>{{ sec.text }}</pre>
+  {% else %}
+    <div class="sub">No rows returned.</div>
+  {% endif %}
+</div>
+{% else %}
+  <p class="sub">No plugin output has been collected for this image.</p>
+{% endfor %}
+
+<div class="foot">
+  Generated by {{ app.name }} v{{ app.version }} on
+  {{ generated_at.strftime('%Y-%m-%d %H:%M:%S') }} UTC.
+  Volatility is a trademark of the Volatility Foundation; this platform orchestrates
+  the official Volatility 2 and Volatility 3 engines and does not modify their output.
+</div>
+
+</body>
+</html>

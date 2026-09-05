@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Cases · {{ APP_NAME }}{% endblock %}
+{% block heading %}Cases{% endblock %}
+{% block crumb %}{{ cases|length }} case(s){% endblock %}
+
+{% block content %}
+
+<div class="grid g2 mb">
+  <div class="card">
+    <h3>New case</h3>
+    <form method="post" action="/api/cases">
+      <label class="f"><span>Case name</span>
+        <input type="text" name="name" required placeholder="INC-2026-0142 — finance workstation"></label>
+      <label class="f"><span>Analyst</span>
+        <input type="text" name="analyst" placeholder="your name"></label>
+      <label class="f"><span>Description</span>
+        <textarea name="description" rows="4" placeholder="Scope, reporting party, timeline…"></textarea></label>
+      <button class="btn primary">Create case</button>
+    </form>
+  </div>
+  <div class="card">
+    <h3>Why cases</h3>
+    <p class="small muted">
+      A case groups several memory images from one incident — a workstation, its
+      jump box and the domain controller, say. Risk scores and findings roll up per
+      case, and the compare view lets you diff the same plugin across two hosts to
+      spot what only one of them has.
+    </p>
+    {% if unassigned %}
+    <hr class="sep">
+    <h3>Unassigned evidence ({{ unassigned|length }})</h3>
+    <div class="pill-row">
+      {% for e in unassigned %}
+        <a class="badge os" href="/evidence/{{ e.id }}?tab=edit">{{ e.name }}</a>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% if cases %}
+<div class="card pad0">
+  <div class="card-head"><h3>All cases</h3></div>
+  <div class="tablewrap"><table class="t">
+    <thead><tr><th>Case</th><th>Analyst</th><th class="right">Evidence</th>
+      <th class="right">Runs</th><th class="right">Findings</th><th>Risk</th>
+      <th>Created</th><th></th></tr></thead>
+    <tbody>
+      {% for c in cases %}
+      {% set r = rollups[c.id] %}
+      <tr>
+        <td><a href="/evidence?case_id={{ c.id }}"><strong>{{ c.name }}</strong></a>
+          {% if c.description %}<div class="tiny faint trunc" style="max-width:380px">{{ c.description }}</div>{% endif %}</td>
+        <td class="small">{{ c.analyst or '—' }}</td>
+        <td class="right mono">{{ r.evidence }}</td>
+        <td class="right mono">{{ r.jobs }}</td>
+        <td class="right mono">{{ r.findings }}</td>
+        <td><span class="sev sev-{{ r.band }}">{{ r.score }}</span></td>
+        <td class="tiny faint">{{ c.created_at | dt(false) }}</td>
+        <td class="right">
+          <form method="post" action="/api/cases/{{ c.id }}/delete" class="inline-form"
+                onsubmit="return confirm('Delete case {{ c.name }}? Evidence is kept but unassigned.')">
+            <button class="btn sm danger">✕</button></form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% else %}
+<div class="card"><div class="empty"><span class="big">🗂</span>No cases yet.</div></div>
+{% endif %}
+
+{% endblock %}

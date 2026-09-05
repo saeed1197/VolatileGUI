@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Settings · {{ APP_NAME }}{% endblock %}
+{% block heading %}Settings{% endblock %}
+{% block crumb %}platform &amp; engines{% endblock %}
+
+{% block content %}
+
+<div class="grid g2 mb">
+  {% for e in engines %}
+  <div class="card">
+    <div class="row">
+      <span class="badge eng-{{ e.key }}">{{ e.label }}</span>
+      {% if e.online %}<span class="st st-success">online</span>
+      {% else %}<span class="st st-failed">offline</span>{% endif %}
+      <span class="spacer"></span>
+      <span class="tiny faint mono">{{ counts[e.key] }} plugins</span>
+    </div>
+    <dl class="kv small mt">
+      <dt>Endpoint</dt><dd class="mono tiny">{{ e.url }}</dd>
+      <dt>Version</dt><dd class="mono">{{ e.version }}</dd>
+      <dt>Python</dt><dd class="mono">{{ e.python }}</dd>
+      {% if e.key == 'vol2' %}
+        <dt>Profiles</dt><dd>{{ profiles|length }}</dd>
+        <dt>Extra plugins</dt><dd class="mono tiny">{{ e.detail.get('plugin_dir', '/profiles') }}</dd>
+      {% else %}
+        <dt>Symbols dir</dt><dd class="mono tiny">{{ e.detail.get('symbols_dir', '/symbols') }}</dd>
+        <dt>Symbols present</dt><dd>{{ 'yes' if e.detail.get('symbols_present') else 'none supplied' }}</dd>
+      {% endif %}
+    </dl>
+    {% if e.error %}
+      <div class="banner err mt-s small"><span>⚠</span><span class="mono">{{ e.error }}</span></div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<div class="grid g2">
+  <div class="card">
+    <h3>Platform preferences</h3>
+    <form method="post" action="/api/settings">
+      <label class="f"><span>Default engine for new analyses</span>
+        <select name="default_engine">
+          <option value="vol3" {{ 'selected' if settings.default_engine=='vol3' }}>Volatility 3</option>
+          <option value="vol2" {{ 'selected' if settings.default_engine=='vol2' }}>Volatility 2</option>
+        </select></label>
+      <label class="f"><span>Organisation (printed on reports)</span>
+        <input type="text" name="organisation" value="{{ settings.organisation }}"></label>
+      <label class="f"><span>Default analyst name</span>
+        <input type="text" name="analyst" value="{{ settings.analyst }}"></label>
+      <label class="f"><span>Per-plugin timeout (seconds)</span>
+        <input type="number" name="job_timeout" value="{{ settings.job_timeout }}" min="60" max="86400"></label>
+      <label class="checkline mb">
+        <input type="checkbox" name="auto_triage" value="1" {{ 'checked' if settings.auto_triage=='1' }}>
+        Run the IOC triage rules automatically after every successful plugin run</label>
+      <label class="checkline mb">
+        <input type="checkbox" name="auto_identify" value="1" {{ 'checked' if settings.auto_identify=='1' }}>
+        Identify OS / suggest a Volatility 2 profile as soon as evidence is added</label>
+      <label class="checkline mb">
+        <input type="checkbox" name="hide_empty_results" value="1" {{ 'checked' if settings.hide_empty_results=='1' }}>
+        Hide runs that returned no rows from report output by default</label>
+      <button class="btn primary">Save settings</button>
+      <span class="tiny faint" style="margin-left:10px">
+        Worker count and upload limits come from <code>.env</code> and need a restart.
+      </span>
+    </form>
+  </div>
+
+  <div>
+    <div class="card mb">
+      <h3>Runtime</h3>
+      <dl class="kv small">
+        <dt>Version</dt><dd>{{ VERSION }}</dd>
+        <dt>Worker threads</dt><dd>{{ workers }}</dd>
+        <dt>Queue depth</dt><dd>{{ queue_depth }}</dd>
+        <dt>Evidence dir</dt><dd class="mono tiny">{{ paths.evidence }}</dd>
+        <dt>Data dir</dt><dd class="mono tiny">{{ paths.data }}</dd>
+        <dt>Reports dir</dt><dd class="mono tiny">{{ paths.reports }}</dd>
+      </dl>
+      <form method="post" action="/api/cache/clear" class="mt">
+        <button class="btn sm">⟳ Clear engine/plugin cache</button></form>
+    </div>
+
+    <div class="card pad0">
+      <div class="card-head"><h3>Audit log</h3><span class="spacer"></span>
+        <span class="tiny faint">last {{ audit|length }} actions</span></div>
+      <div class="tablewrap" style="max-height:420px">
+        {% if audit %}
+        <table class="t dense"><tbody>
+          {% for a in audit %}
+          <tr>
+            <td class="tiny faint nowrap">{{ a.ts | dt }}</td>
+            <td class="mono tiny">{{ a.action }}</td>
+            <td class="small">{{ a.detail or a.target }}</td>
+          </tr>
+          {% endfor %}
+        </tbody></table>
+        {% else %}<div class="empty small">Nothing logged yet.</div>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}Analyze {{ ev.name }} · {{ APP_NAME }}{% endblock %}
+{% block heading %}Run analysis{% endblock %}
+{% block crumb %}<a href="/evidence/{{ ev.id }}">{{ ev.name }}</a> / {{ os_name }}{% endblock %}
+
+{% block content %}
+
+<form method="post" action="/api/analyze" id="analyzeform">
+<input type="hidden" name="evidence_id" value="{{ ev.id }}">
+<input type="hidden" name="preset" id="presetfield" value="{{ selected_preset }}">
+
+{# ---------------- 1. engine ---------------- #}
+<div class="card mb">
+  <h3>1 · Choose the engine</h3>
+  <div class="grid g2">
+    {% for e in engines %}
+    <a href="/evidence/{{ ev.id }}/analyze?engine={{ e.key }}"
+       class="preset {{ 'on' if e.key == engine }}" style="display:block">
+      <div class="row">
+        <span class="badge eng-{{ e.key }}">{{ e.label }}</span>
+        {% if e.online %}<span class="st st-success">online</span>
+        {% else %}<span class="st st-failed">offline</span>{% endif %}
+        <span class="spacer"></span>
+        <span class="tiny faint mono">{{ e.version }}</span>
+      </div>
+      <div class="bl mt-s">{{ e.blurb }}</div>
+      {% if e.key == engine %}<div class="ct">▲ selected · {{ plugin_count }} plugins available</div>{% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  <input type="hidden" name="engine" value="{{ engine }}">
+
+  {% if engine == 'vol2' %}
+  <hr class="sep">
+  <div class="grid g2">
+    <label class="f" style="margin:0">
+      <span>Volatility 2 profile (required for most plugins)</span>
+      <input type="text" name="profile" list="profiles"
+             value="{{ ev.vol2_profile }}" placeholder="Win7SP1x64">
+      <datalist id="profiles">
+        {% for p in profiles %}<option value="{{ p }}">{% endfor %}
+      </datalist>
+    </label>
+    <div class="small muted">
+      {% if ev.vol2_profile_candidates %}
+        Suggested from <code>imageinfo</code>:
+        <div class="pill-row mt-s">
+          {% for p in ev.vol2_profile_candidates %}<span class="badge eng-vol2">{{ p }}</span>{% endfor %}
+        </div>
+      {% else %}
+        No profile suggestion stored yet. Run
+        <a href="#" onclick="document.getElementById('idform').submit();return false">identification</a>
+        first, or run the <code>imageinfo</code> plugin below.
+      {% endif %}
+      {% if profiles|length == 0 %}
+        <div class="banner warn small mt-s"><span>⚠</span>
+          <span>The Volatility 2 container reported no profiles — it may still be building.</span></div>
+      {% endif %}
+    </div>
+  </div>
+  {% elif engine == 'vol3' %}
+  <div class="banner small mt">
+    <span>ℹ</span>
+    <span>Volatility 3 resolves symbols automatically. Windows symbols are downloaded
+      from Microsoft on first use; Linux/Mac images need an ISF file placed in
+      <code>./symbols/</code>.</span>
+  </div>
+  {% endif %}
+</div>
+
+{# ---------------- 2. presets ---------------- #}
+<div class="card mb">
+  <h3>2 · Pick a preset, or build your own selection</h3>
+  <div class="preset-grid">
+    {% for key, p in presets.items() %}
+      {% set names = preset_preview.get(key, []) %}
+      <button type="button" class="preset {{ 'on' if key == selected_preset }}"
+              data-preset="{{ key }}"
+              onclick='applyPreset("{{ key }}", {{ names | tojson_safe }})'>
+        <div class="ic">{{ icon(p.icon) }}</div>
+        <div class="nm">{{ p.label }}</div>
+        <div class="bl">{{ p.blurb }}</div>
+        <div class="ct">{{ names|length }} plugin(s)</div>
+      </button>
+    {% endfor %}
+  </div>
+</div>
+
+{# ---------------- 3. plugin picker ---------------- #}
+<div class="card pad0 mb">
+  <div class="card-head">
+    <h3>3 · Plugins</h3>
+    <span class="spacer"></span>
+    <input type="search" id="pluginsearch" placeholder="Search plugins…" style="width:260px">
+    <button type="button" class="btn sm" onclick="selectPopular()">★ Popular only</button>
+    <button type="button" class="btn sm" onclick="selectAllVisible(true)">Select visible</button>
+    <button type="button" class="btn sm ghost" onclick="selectAllVisible(false)">Clear</button>
+  </div>
+  <div class="card-body">
+    {% if not groups %}
+      <div class="empty">No plugins reported by the {{ engine }} runner. Check the engine is online.</div>
+    {% endif %}
+    {% for g in groups %}
+    <details class="plugin-cat" {% if g.category in ['Processes','Network','Malware'] %}open{% endif %}>
+      <summary>
+        <span class="ic">{{ icon(g.icon) }}</span>{{ g.category }}
+        <span class="n">{{ g.plugins|length }}</span>
+      </summary>
+      <div class="plugin-list">
+        {% for m in g.plugins %}
+        <label class="pl {{ 'off' if not m.get('available', True) }}"
+               data-search="{{ (m.name ~ ' ' ~ m.label ~ ' ' ~ m.description) | lower }}">
+          <input type="checkbox" name="plugins" value="{{ m.name }}"
+                 data-popular="{{ '1' if m.popular else '0' }}"
+                 {{ 'disabled' if not m.get('available', True) }}>
+          <span style="flex:1;min-width:0">
+            <span class="nm">
+              {{ m.label }}
+              {% if m.popular %}<span class="star" title="popular">★</span>{% endif %}
+              {% if not m.get('available', True) %}<span class="tiny faint">({{ m.get('unavailable_reason', 'not installed') }})</span>{% endif %}
+            </span>
+            <code class="tiny">{{ m.name }}</code>
+            <span class="de">{{ m.description }}</span>
+            {% if m.args %}
+            <span class="argbox">
+              {% for a in m.args %}
+                <span class="argfield">
+                  <span>{{ a.label }}{% if a.get('required') %} *{% endif %}</span>
+                  {% if a.type == 'bool' %}
+                    <input type="checkbox" name="arg::{{ m.name }}::{{ a.flag }}" value="true"
+                           style="width:auto">
+                  {% else %}
+                    <input type="text" name="arg::{{ m.name }}::{{ a.flag }}"
+                           placeholder="{{ a.get('placeholder','') }}">
+                  {% endif %}
+                </span>
+              {% endfor %}
+            </span>
+            {% endif %}
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+    </details>
+    {% endfor %}
+  </div>
+</div>
+
+{# ---------------- submit ---------------- #}
+<div class="card">
+  <div class="row wrap">
+    <div>
+      <div class="small faint">Selected</div>
+      <div style="font-size:22px;font-weight:650"><span id="selcount">0</span> plugin(s)</div>
+    </div>
+    <span class="spacer"></span>
+    <span class="small muted" style="max-width:520px">
+      Runs are queued and executed by {{ ENGINES[engine].label }} in the background —
+      you can leave this page. Live output appears on each run's page.
+    </span>
+    <button class="btn primary" id="runbtn" disabled style="padding:11px 20px;font-size:15px">
+      ▶ Queue analysis
+    </button>
+  </div>
+</div>
+</form>
+
+<form method="post" action="/api/evidence/{{ ev.id }}/identify" id="idform"></form>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.getElementById("analyzeform").addEventListener("submit", function () {
+    var b = document.getElementById("runbtn");
+    b.disabled = true; b.textContent = "Queuing…";
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Findings · {{ APP_NAME }}{% endblock %}
+{% block heading %}Findings{% endblock %}
+{% block crumb %}{{ pager['total'] | num }} matching{% endblock %}
+
+{% block content %}
+
+<div class="card mb">
+  <form method="get" class="row wrap" style="gap:10px">
+    <label style="width:160px;margin:0">
+      <select name="severity">
+        <option value="">All severities</option>
+        {% for sv in ['critical','high','medium','low','info'] %}
+          <option value="{{ sv }}" {{ 'selected' if sv == severity }}>{{ sv }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label style="width:150px;margin:0">
+      <select name="state">
+        <option value="">Any state</option>
+        {% for stv in ['open','confirmed','dismissed'] %}
+          <option value="{{ stv }}" {{ 'selected' if stv == state }}>{{ stv }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label style="width:200px;margin:0">
+      <select name="category">
+        <option value="">All categories</option>
+        {% for c in categories %}<option value="{{ c }}" {{ 'selected' if c == category }}>{{ c }}</option>{% endfor %}
+      </select>
+    </label>
+    <label style="width:230px;margin:0">
+      <select name="evidence_id">
+        <option value="">All evidence</option>
+        {% for eid, e in evidence_map.items() %}
+          <option value="{{ eid }}" {{ 'selected' if eid == evidence_id }}>{{ e.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button class="btn">Filter</button>
+    <a class="btn ghost" href="/findings">Reset</a>
+  </form>
+</div>
+
+{% if pager['items'] %}
+  {% for f in pager['items'] %}
+  <div class="finding f-{{ f.severity }} {{ 'dismissed' if f.state=='dismissed' }}">
+    <div class="row wrap">
+      <span class="{{ f.severity | sev_class }}">{{ f.severity }}</span>
+      <span class="tiny faint">{{ f.category }}</span>
+      {% set e = evidence_map.get(f.evidence_id) %}
+      {% if e %}<a class="badge os" href="/evidence/{{ e.id }}?tab=findings">{{ e.name }}</a>{% endif %}
+      <span class="spacer"></span>
+      {% if f.state != 'open' %}<span class="badge os">{{ f.state }}</span>{% endif %}
+    </div>
+    <div class="ti mt-s">{{ f.title }}</div>
+    {% if f.detail %}<div class="de">{{ f.detail }}</div>{% endif %}
+    {% if f.recommendation %}<div class="re">▸ {{ f.recommendation }}</div>{% endif %}
+    <div class="meta">
+      {% set j = jobs.get(f.job_id) %}
+      {% if j %}<a href="/jobs/{{ j.id }}">{{ j.plugin_label or j.plugin }}</a>
+        <span class="badge eng-{{ j.engine }}">{{ j.engine }}</span>{% endif %}
+      <span class="mono">{{ f.rule_id }}</span>
+      <span>{{ f.created_at | ago }}</span>
+      <span class="spacer"></span>
+      {% for stv, label in [('confirmed','✓ Confirm'), ('dismissed','✕ Dismiss'), ('open','↺ Reopen')] %}
+        {% if f.state != stv %}
+        <form method="post" action="/api/findings/{{ f.id }}/state" class="inline-form">
+          <input type="hidden" name="state" value="{{ stv }}">
+          <button class="btn sm ghost">{{ label }}</button></form>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+
+  {% if pager['pages'] > 1 %}
+  <div class="pager">
+    <span>Showing {{ pager['start'] }}–{{ pager['end'] }} of {{ pager['total'] | num }}</span>
+    <span class="spacer"></span>
+    {% if pager['has_prev'] %}<a class="btn sm" href="?page={{ pager['page']-1 }}&severity={{ severity }}&state={{ state }}&category={{ category }}">← Prev</a>{% endif %}
+    <span class="mono">{{ pager['page'] }} / {{ pager['pages'] }}</span>
+    {% if pager['has_next'] %}<a class="btn sm" href="?page={{ pager['page']+1 }}&severity={{ severity }}&state={{ state }}&category={{ category }}">Next →</a>{% endif %}
+  </div>
+  {% endif %}
+{% else %}
+<div class="card"><div class="empty"><span class="big">✓</span>
+  No findings match. Run the <strong>Quick Triage</strong> or <strong>Malware Hunt</strong>
+  preset against an image to generate some.
+</div></div>
+{% endif %}
+
+{% endblock %}

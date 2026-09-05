@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Plugin catalog · {{ APP_NAME }}{% endblock %}
+{% block heading %}Plugin catalog{% endblock %}
+{% block crumb %}{{ total }} plugin(s) · {{ ENGINES[engine].label }}{% endblock %}
+
+{% block content %}
+
+<div class="card mb">
+  <form method="get" class="row wrap" style="gap:10px">
+    <div class="btn-group">
+      <a class="btn {{ 'primary' if engine=='vol3' }}" href="/plugins?engine=vol3&os_name={{ os_name }}">Volatility 3</a>
+      <a class="btn {{ 'primary' if engine=='vol2' }}" href="/plugins?engine=vol2&os_name={{ os_name }}">Volatility 2</a>
+    </div>
+    <input type="hidden" name="engine" value="{{ engine }}">
+    <label style="width:170px;margin:0">
+      <select name="os_name" onchange="this.form.submit()">
+        <option value="">All operating systems</option>
+        {% for o in ['windows','linux','mac'] %}
+          <option value="{{ o }}" {{ 'selected' if o == os_name }}>{{ o }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <input type="search" name="q" value="{{ q }}" placeholder="Search name or description…" style="width:280px">
+    <button class="btn">Search</button>
+    {% if q %}<a class="btn ghost" href="/plugins?engine={{ engine }}">Clear</a>{% endif %}
+    <span class="spacer"></span>
+    <a class="btn ghost" href="/api/plugins/{{ engine }}?refresh=true" target="_blank">Refresh from runner</a>
+  </form>
+</div>
+
+{% for e in engines %}
+  {% if e.key == engine and not e.online %}
+  <div class="banner err mb"><span>⚠</span>
+    <span>The {{ e.label }} runner is offline, so this list is the curated catalog only —
+      availability could not be verified.</span></div>
+  {% endif %}
+{% endfor %}
+
+{% for g in groups %}
+<div class="card pad0 mb">
+  <div class="card-head">
+    <h3><span class="ic">{{ icon(g.icon) }}</span> {{ g.category }}</h3>
+    <span class="spacer"></span>
+    <span class="tiny faint">{{ g.plugins|length }} plugin(s)</span>
+  </div>
+  <div class="tablewrap"><table class="t dense">
+    <thead><tr><th style="width:230px">Plugin</th><th style="width:90px">OS</th>
+      <th>What it does</th><th style="width:110px"></th></tr></thead>
+    <tbody>
+      {% for m in g.plugins %}
+      <tr>
+        <td>
+          <strong>{{ m.label }}</strong>{% if m.popular %} <span style="color:var(--med)">★</span>{% endif %}
+          <div class="tiny faint mono">{{ m.name }}</div>
+        </td>
+        <td><span class="badge os">{{ m.os }}</span></td>
+        <td class="small">{{ m.description }}
+          {% if m.args %}<div class="tiny faint mt-s">args:
+            {% for a in m.args %}<code>--{{ a.flag }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+          </div>{% endif %}
+        </td>
+        <td class="right">
+          {% if m.get('available', True) %}
+            <span class="st st-success">installed</span>
+          {% else %}
+            <span class="st st-empty">absent</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% else %}
+  <div class="card"><div class="empty">Nothing matched that search.</div></div>
+{% endfor %}
+
+{% endblock %}

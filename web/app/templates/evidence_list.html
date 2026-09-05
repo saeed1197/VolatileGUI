@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Evidence · {{ APP_NAME }}{% endblock %}
+{% block heading %}Evidence{% endblock %}
+{% block crumb %}{{ items|length }} image(s){% endblock %}
+{% block actions %}
+  <form method="post" action="/api/evidence/scan" class="inline-form">
+    <button class="btn">⟳ Scan evidence folder</button>
+  </form>
+{% endblock %}
+
+{% block content %}
+
+<div class="grid g2 mb">
+  <div class="card">
+    <h3>Upload a memory image</h3>
+    <div class="dropzone" id="dropzone">
+      <span class="big">⬆</span>
+      <div><strong>Drop an image here</strong> or click to browse</div>
+      <div class="small faint mt-s">
+        Streamed straight to disk — multi-gigabyte images are fine.
+        Limit: {{ max_upload | bytes }}.
+      </div>
+    </div>
+    <input type="file" id="fileinput" style="display:none">
+    <div id="uploadprog" style="display:none" class="mt">
+      <div class="bar"><i id="uploadbar" style="width:0%"></i></div>
+      <div class="small faint mt-s" id="uploadlabel"></div>
+    </div>
+    {% if cases %}
+    <label class="f mt">
+      <span>Assign to case (optional)</span>
+      <select id="case_id">
+        <option value="">— none —</option>
+        {% for c in cases %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+      </select>
+    </label>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h3>Or drop files into the shared folder</h3>
+    <p class="small muted">
+      Anything you place in the host directory <code>./evidence/</code> is visible to
+      both engines. Click <strong>Scan evidence folder</strong> above to register new
+      files without re-uploading them — the fastest path for images you already have
+      on disk.
+    </p>
+    <hr class="sep">
+    <h3>Supported formats</h3>
+    <p class="small muted">
+      Raw/padded dumps (<code>.raw .mem .bin .img .dmp</code>), VMware
+      (<code>.vmem .vmss .vmsn</code>), crash dumps, hibernation files, LiME
+      (<code>.lime</code>) and ELF core dumps. Volatility 3 also reads compressed
+      layers where the plugin supports it.
+    </p>
+    <form method="get" action="/evidence" class="row mt">
+      <input type="search" name="q" value="{{ q }}" placeholder="Search name, filename or SHA-256…">
+      <button class="btn">Search</button>
+    </form>
+  </div>
+</div>
+
+{% if items %}
+<div class="card pad0">
+  <div class="card-head">
+    <h3>Registered evidence</h3>
+    <span class="spacer"></span>
+    <input type="search" id="evfilter" placeholder="Filter…" style="width:220px">
+  </div>
+  <div class="tablewrap">
+  <table class="t" id="evtable">
+    <thead><tr>
+      <th>Name</th><th>Size</th><th>OS / profile</th><th>Hash</th>
+      <th>Runs</th><th>Risk</th><th>Added</th><th></th>
+    </tr></thead>
+    <tbody>
+    {% for e in items %}
+      {% set r = rollups[e.id] %}
+      <tr>
+        <td>
+          <a href="/evidence/{{ e.id }}"><strong>{{ e.name }}</strong></a>
+          <div class="tiny faint mono">{{ e.filename }}</div>
+          {% if e.case_id %}<div class="tiny faint">case #{{ e.case_id }}</div>{% endif %}
+        </td>
+        <td class="nowrap mono small">{{ e.size | bytes }}</td>
+        <td class="small">
+          {% if e.detected_os %}<span class="badge os">{{ e.detected_os }}</span>{% else %}
+            <span class="tiny faint">{{ e.identify_state }}</span>{% endif %}
+          {% if e.vol2_profile %}<div class="tiny faint mono">{{ e.vol2_profile }}</div>{% endif %}
+        </td>
+        <td class="tiny mono faint" style="max-width:200px">
+          {% if e.sha256 %}<span title="{{ e.sha256 }}">{{ e.sha256[:16] }}…</span>
+          {% else %}{{ e.hash_state }}{% endif %}
+        </td>
+        <td class="small nowrap">
+          {{ r.jobs }}
+          {% if r.running %}<span class="st st-running">{{ r.running }} active</span>{% endif %}
+        </td>
+        <td class="nowrap">
+          <span class="sev sev-{{ r.risk_band }}">{{ r.risk_score }}</span>
+          {% if r.findings %}<span class="tiny faint">{{ r.findings }} finding(s)</span>{% endif %}
+        </td>
+        <td class="tiny faint nowrap">{{ e.created_at | ago }}</td>
+        <td class="right nowrap">
+          <a class="btn sm primary" href="/evidence/{{ e.id }}/analyze">Analyze</a>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% else %}
+<div class="card"><div class="empty">
+  <span class="big">▤</span>
+  No evidence registered yet. Upload an image above, or copy one into
+  <code>./evidence/</code> and press “Scan evidence folder”.
+</div></div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>initTableFilter("evfilter", "evtable");</script>
+{% endblock %}

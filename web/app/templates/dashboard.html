@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · {{ APP_NAME }}{% endblock %}
+{% block heading %}Dashboard{% endblock %}
+{% block actions %}
+  <a class="btn primary" href="/evidence">＋ Add evidence</a>
+{% endblock %}
+
+{% block content %}
+
+{# ---------- engine health ---------- #}
+<div class="grid g2 mb">
+  {% for e in engines %}
+  <div class="card">
+    <div class="row">
+      <span class="badge eng-{{ e.key }}">{{ e.label }}</span>
+      {% if e.online %}
+        <span class="st st-success">online</span>
+      {% else %}
+        <span class="st st-failed">offline</span>
+      {% endif %}
+      <span class="spacer"></span>
+      {% if e.online %}
+        <span class="small faint mono">{{ e.version }}{% if e.python and e.python != '?' %} · py{{ e.python }}{% endif %}</span>
+      {% endif %}
+    </div>
+    <p class="small muted" style="margin:10px 0 0">{{ e.blurb }}</p>
+    {% if not e.online %}
+      <div class="banner err mt-s small">
+        <span>⚠</span>
+        <span>Cannot reach <code>{{ e.url }}</code>{% if e.error %} — {{ e.error }}{% endif %}.
+        Run <code>docker compose up -d {{ e.key }}</code>.</span>
+      </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+{# ---------- headline numbers ---------- #}
+<div class="grid g4 mb">
+  <div class="card stat">
+    <span class="k">Evidence images</span>
+    <span class="v">{{ stats.total_evidence }}</span>
+    <span class="sub">{{ stats.total_rows | num }} artefact rows extracted</span>
+  </div>
+  <div class="card stat">
+    <span class="k">Plugin runs</span>
+    <span class="v">{{ stats.total_jobs }}</span>
+    <span class="sub">
+      {{ stats.by_status.get('success', 0) }} ok ·
+      {{ stats.by_status.get('failed', 0) }} failed ·
+      {{ queue_depth }} queued
+    </span>
+  </div>
+  <div class="card stat">
+    <span class="k">Open findings</span>
+    <span class="v" style="color:{% if stats.by_severity.get('critical') %}var(--crit){% elif stats.by_severity.get('high') %}var(--high){% else %}var(--txt){% endif %}">
+      {{ stats.total_findings }}
+    </span>
+    <span class="sub pill-row" style="margin-top:6px">
+      {% for sev in ['critical','high','medium','low','info'] %}
+        {% if stats.by_severity.get(sev) %}
+          <span class="sev sev-{{ sev }}">{{ stats.by_severity[sev] }} {{ sev }}</span>
+        {% endif %}
+      {% endfor %}
+      {% if not stats.total_findings %}<span class="sev sev-clean">nothing flagged</span>{% endif %}
+    </span>
+  </div>
+  <div class="card stat">
+    <span class="k">Engine time</span>
+    <span class="v">{{ stats.runtime | duration }}</span>
+    <span class="sub">
+      {% for k, v in stats.by_engine.items() %}{{ k }}: {{ v }}{% if not loop.last %} · {% endif %}{% endfor %}
+      {% if not stats.by_engine %}no runs yet{% endif %}
+    </span>
+  </div>
+</div>
+
+{# ---------- active jobs ---------- #}
+<div class="card pad0 mb">
+  <div class="card-head">
+    <h3>Active queue</h3>
+    <span class="spacer"></span>
+    <a class="btn sm ghost" href="/jobs">Full history →</a>
+  </div>
+  <div id="activejobs"><div class="empty small">loading…</div></div>
+</div>
+
+<div class="grid g2">
+  {# ---------- top findings ---------- #}
+  <div class="card pad0">
+    <div class="card-head">
+      <h3>Highest-priority findings</h3>
+      <span class="spacer"></span>
+      <a class="btn sm ghost" href="/findings">All findings →</a>
+    </div>
+    <div class="card-body">
+      {% if stats.top_findings %}
+        {% for f in stats.top_findings %}
+        <div class="finding f-{{ f.severity }}">
+          <div class="row">
+            <span class="{{ f.severity | sev_class }}">{{ f.severity }}</span>
+            <span class="tiny faint">{{ f.category }}</span>
+          </div>
+          <div class="ti mt-s">{{ f.title }}</div>
+          <div class="meta">
+            <a href="/evidence/{{ f.evidence_id }}?tab=findings">
+              {{ stats.evidence_map[f.evidence_id].name if f.evidence_id in stats.evidence_map else 'evidence ' ~ f.evidence_id }}
+            </a>
+            <span>·</span><span>{{ f.rule_id }}</span>
+            <span>·</span><span>{{ f.created_at | ago }}</span>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty"><span class="big">✓</span>No triage findings yet. Run an analysis to populate this.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div>
+    {# ---------- recent evidence ---------- #}
+    <div class="card pad0 mb">
+      <div class="card-head"><h3>Recent evidence</h3><span class="spacer"></span>
+        <a class="btn sm ghost" href="/evidence">All →</a></div>
+      {% if stats.recent_evidence %}
+      <div class="tablewrap"><table class="t dense">
+        <tbody>
+          {% for e in stats.recent_evidence %}
+          <tr>
+            <td><a href="/evidence/{{ e.id }}"><strong>{{ e.name }}</strong></a>
+                <div class="tiny faint">{{ e.filename }}</div></td>
+            <td class="nowrap">{{ e.size | bytes }}</td>
+            <td class="nowrap">
+              {% if e.detected_os %}<span class="badge os">{{ e.detected_os }}</span>
+              {% else %}<span class="tiny faint">unidentified</span>{% endif %}
+            </td>
+            <td class="nowrap tiny faint">{{ e.created_at | ago }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table></div>
+      {% else %}
+        <div class="empty"><span class="big">▤</span>No evidence yet — upload an image or drop one into the
+          <code>evidence/</code> folder and hit “Scan folder”.</div>
+      {% endif %}
+    </div>
+
+    {# ---------- most used plugins ---------- #}
+    <div class="card pad0">
+      <div class="card-head"><h3>Most-used plugins</h3></div>
+      {% if stats.top_plugins %}
+      <div class="tablewrap"><table class="t dense"><tbody>
+        {% for p in stats.top_plugins %}
+        <tr>
+          <td>{{ p.label }}</td>
+          <td class="nowrap"><span class="badge eng-{{ p.engine }}">{{ p.engine }}</span></td>
+          <td class="right mono">{{ p.count }}</td>
+        </tr>
+        {% endfor %}
+      </tbody></table></div>
+      {% else %}<div class="empty small">Nothing run yet.</div>{% endif %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  livePoll("/api/partials/active-jobs", "activejobs", 2500);
+  attachJobsStream(function (d) {
+    if (d.type === "findings" && d.counts) {
+      var n = Object.values(d.counts).reduce(function (a, b) { return a + b; }, 0);
+      if (n) toast(n + " new finding(s)", "err", 5000);
+    }
+  });
+</script>
+{% endblock %}

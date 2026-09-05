@@ -1,0 +1,35 @@
+{% if jobs %}
+<div class="tablewrap">
+<table class="t dense">
+  <thead><tr>
+    <th style="width:34%">Plugin</th><th>Evidence</th><th>Engine</th>
+    <th>Status</th><th style="width:22%">Progress</th><th></th>
+  </tr></thead>
+  <tbody>
+  {% for j in jobs %}
+    <tr>
+      <td><a href="/jobs/{{ j.id }}">{{ j.plugin_label or j.plugin }}</a>
+          <div class="tiny faint mono">{{ j.plugin }}</div></td>
+      <td class="small">
+        {% set ev = evidence_map.get(j.evidence_id) %}
+        {% if ev %}<a href="/evidence/{{ ev.id }}">{{ ev.name }}</a>{% else %}—{% endif %}
+      </td>
+      <td><span class="badge eng-{{ j.engine }}">{{ j.engine }}</span></td>
+      <td><span class="{{ j.status | status_class }}">{{ j.status }}</span></td>
+      <td>
+        <div class="bar"><i style="width:{{ j.progress or 0 }}%"></i></div>
+        <div class="tiny faint">{{ '%.0f' % (j.progress or 0) }}%</div>
+      </td>
+      <td class="right">
+        <form method="post" action="/api/jobs/{{ j.id }}/cancel" class="inline-form">
+          <button class="btn sm danger" type="submit">Cancel</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div class="empty small">Queue is idle{% if queue_depth %} ({{ queue_depth }} pending){% endif %}.</div>
+{% endif %}

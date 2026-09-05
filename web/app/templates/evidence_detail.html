@@ -1,0 +1,341 @@
+{% extends "base.html" %}
+{% block title %}{{ ev.name }} · {{ APP_NAME }}{% endblock %}
+{% block heading %}{{ ev.name }}{% endblock %}
+{% block crumb %}<a href="/evidence">evidence</a> / {{ ev.filename }}{% endblock %}
+{% block actions %}
+  <a class="btn primary" href="/evidence/{{ ev.id }}/analyze">▶ Run analysis</a>
+  <form method="post" action="/api/evidence/{{ ev.id }}/identify" class="inline-form">
+    <button class="btn">⌖ Identify</button></form>
+{% endblock %}
+
+{% block content %}
+
+<div class="grid g4 mb">
+  <div class="card stat">
+    <span class="k">Risk score</span>
+    <span class="v" style="color:var(--{{ 'crit' if rollup.risk_band=='critical' else 'high' if rollup.risk_band=='high' else 'med' if rollup.risk_band=='medium' else 'low' if rollup.risk_band=='low' else 'ok' }})">
+      {{ rollup.risk_score }}<span class="small faint">/100</span>
+    </span>
+    <span class="sub"><span class="sev sev-{{ rollup.risk_band }}">{{ rollup.risk_band }}</span></span>
+  </div>
+  <div class="card stat">
+    <span class="k">Plugin runs</span><span class="v">{{ rollup.jobs }}</span>
+    <span class="sub">
+      {{ rollup.by_status.get('success', 0) }} ok ·
+      {{ rollup.by_status.get('failed', 0) }} failed ·
+      {{ rollup.running }} active
+    </span>
+  </div>
+  <div class="card stat">
+    <span class="k">Rows extracted</span><span class="v">{{ rollup.rows | num }}</span>
+    <span class="sub">{{ rollup.runtime | duration }} of engine time</span>
+  </div>
+  <div class="card stat">
+    <span class="k">Open findings</span><span class="v">{{ rollup.findings }}</span>
+    <span class="sub pill-row" style="margin-top:6px">
+      {% for sev in ['critical','high','medium','low','info'] %}
+        {% if rollup.severity_counts.get(sev) %}
+          <span class="sev sev-{{ sev }}">{{ rollup.severity_counts[sev] }}</span>
+        {% endif %}
+      {% endfor %}
+    </span>
+  </div>
+</div>
+
+<div class="tabs">
+  <a href="?tab=overview" class="{{ 'on' if tab=='overview' }}">Overview</a>
+  <a href="?tab=runs"     class="{{ 'on' if tab=='runs' }}">Runs ({{ jobs|length }})</a>
+  <a href="?tab=findings" class="{{ 'on' if tab=='findings' }}">Findings ({{ findings|length }})</a>
+  <a href="?tab=reports"  class="{{ 'on' if tab=='reports' }}">Reports</a>
+  <a href="?tab=edit"     class="{{ 'on' if tab=='edit' }}">Metadata</a>
+</div>
+
+{# =================================================================== #}
+{% if tab == 'overview' %}
+<div class="grid g2">
+  <div class="card">
+    <h3>Image</h3>
+    <dl class="kv">
+      <dt>File</dt><dd class="mono">{{ ev.filename }}</dd>
+      <dt>Runner path</dt><dd class="mono tiny">{{ ev.path }}</dd>
+      <dt>Size</dt><dd>{{ ev.size | bytes }} <span class="faint tiny">({{ ev.size | num }} bytes)</span></dd>
+      <dt>SHA-256</dt><dd class="mono tiny">{{ ev.sha256 or ev.hash_state }}</dd>
+      <dt>MD5</dt><dd class="mono tiny">{{ ev.md5 or '—' }}</dd>
+      <dt>Registered</dt><dd>{{ ev.created_at | dt }} <span class="faint tiny">({{ ev.source }})</span></dd>
+      <dt>Detected OS</dt><dd>{% if ev.detected_os %}<span class="badge os">{{ ev.detected_os }}</span>{% else %}<span class="faint">{{ ev.identify_state }}</span>{% endif %}</dd>
+      <dt>Vol2 profile</dt><dd class="mono">{{ ev.vol2_profile or '—' }}</dd>
+    </dl>
+    {% if ev.notes %}<hr class="sep"><h3>Notes</h3><p class="small">{{ ev.notes }}</p>{% endif %}
+  </div>
+
+  <div class="card">
+    <h3>Identification</h3>
+    {% if ev.identify_state == 'none' %}
+      <div class="banner warn small">
+        <span>⌖</span><span>This image has not been identified yet. Identification runs
+        <code>windows.info</code> / <code>banners</code> on Volatility 3 and
+        <code>imageinfo</code> on Volatility 2 to work out the OS and the profile.</span>
+      </div>
+      <form method="post" action="/api/evidence/{{ ev.id }}/identify" class="mt">
+        <button class="btn primary">Identify now</button></form>
+    {% elif ev.identify_state == 'running' %}
+      <div class="banner small"><span>⏳</span><span>Identification is running — this can take
+        several minutes on a large image. Refresh to check.</span></div>
+    {% else %}
+      {% if ev.vol2_profile_candidates %}
+        <div class="small muted mb">Suggested Volatility 2 profiles:</div>
+        <div class="pill-row mb">
+          {% for p in ev.vol2_profile_candidates %}
+            <span class="badge {{ 'eng-vol2' if p == ev.vol2_profile else 'os' }}">{{ p }}</span>
+          {% endfor %}
+        </div>
+      {% endif %}
+      {% set d = ev.identify_detail.get('vol3', {}) if ev.identify_detail else {} %}
+      {% if d.get('details') %}
+        <dl class="kv small">
+          {% for k, v in d['details'].items() %}
+            {% if loop.index <= 14 %}<dt>{{ k }}</dt><dd class="mono tiny">{{ v }}</dd>{% endif %}
+          {% endfor %}
+        </dl>
+      {% endif %}
+      <form method="post" action="/api/evidence/{{ ev.id }}/identify" class="mt">
+        <button class="btn sm">Re-identify</button></form>
+    {% endif %}
+  </div>
+</div>
+
+{% if by_family %}
+<div class="card mt">
+  <h3>Collected artefact families</h3>
+  <div class="pill-row">
+    {% for fam, js in by_family.items() %}
+      <a class="badge os" href="/jobs/{{ js[0].id }}">{{ fam }} · {{ js|length }}</a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{# =================================================================== #}
+{% elif tab == 'runs' %}
+<div class="card pad0">
+  <div class="card-head">
+    <h3>Run history</h3><span class="spacer"></span>
+    <input type="search" id="jobfilter" placeholder="Filter plugins…" style="width:220px">
+    <a class="btn sm primary" href="/evidence/{{ ev.id }}/analyze">＋ New run</a>
+  </div>
+  <div class="tablewrap" id="jobtablewrap">
+    {% if jobs %}
+    <table class="t" id="jobtable">
+      <thead><tr>
+        <th>#</th><th>Plugin</th><th>Engine</th><th>Status</th>
+        <th class="right">Rows</th><th class="right">Time</th><th>Started</th><th></th>
+      </tr></thead>
+      <tbody>
+      {% for j in jobs %}
+        <tr>
+          <td class="mono tiny faint">{{ j.id }}</td>
+          <td>
+            <a href="/jobs/{{ j.id }}">{{ j.plugin_label or j.plugin }}</a>
+            <div class="tiny faint mono">{{ j.plugin }}{% if j.profile %} · {{ j.profile }}{% endif %}</div>
+            {% if j.error %}<div class="tiny" style="color:var(--crit)">{{ j.error[:200] }}</div>{% endif %}
+          </td>
+          <td><span class="badge eng-{{ j.engine }}">{{ j.engine }}</span></td>
+          <td>
+            <span class="{{ j.status | status_class }}">{{ j.status }}</span>
+            {% if j.status == 'running' %}
+              <div class="bar mt-s" style="width:90px"><i style="width:{{ j.progress or 0 }}%"></i></div>
+            {% endif %}
+          </td>
+          <td class="right mono">{{ j.row_count | num }}</td>
+          <td class="right mono tiny">{{ j.duration | duration }}</td>
+          <td class="tiny faint nowrap">{{ j.started_at | ago }}</td>
+          <td class="right nowrap">
+            {% if j.status in ('queued','running') %}
+              <form method="post" action="/api/jobs/{{ j.id }}/cancel" class="inline-form">
+                <button class="btn sm danger">Cancel</button></form>
+            {% else %}
+              <form method="post" action="/api/jobs/{{ j.id }}/rerun" class="inline-form">
+                <button class="btn sm ghost">Re-run</button></form>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <div class="empty"><span class="big">▶</span>Nothing has been run against this image yet.</div>
+    {% endif %}
+  </div>
+</div>
+
+{% if batches %}
+<div class="card mt">
+  <h3>Batches</h3>
+  <table class="t dense"><tbody>
+    {% for b in batches %}
+    <tr>
+      <td>{{ b.name }}</td>
+      <td><span class="badge eng-{{ b.engine }}">{{ b.engine }}</span></td>
+      <td class="small faint">{{ b.preset or 'custom selection' }}</td>
+      <td class="right tiny faint">{{ b.created_at | ago }}</td>
+    </tr>
+    {% endfor %}
+  </tbody></table>
+</div>
+{% endif %}
+
+{# =================================================================== #}
+{% elif tab == 'findings' %}
+<div class="row mb wrap">
+  <form method="post" action="/api/evidence/{{ ev.id }}/retriage" class="inline-form">
+    <button class="btn">⟳ Re-run triage on collected results</button></form>
+  <span class="spacer"></span>
+  <span class="small faint">Findings are indicators, not verdicts — confirm or dismiss each one.</span>
+</div>
+{% if findings %}
+  {% for f in findings %}
+  <div class="finding f-{{ f.severity }} {{ 'dismissed' if f.state=='dismissed' }}">
+    <div class="row wrap">
+      <span class="{{ f.severity | sev_class }}">{{ f.severity }}</span>
+      <span class="tiny faint">{{ f.category }}</span>
+      <span class="spacer"></span>
+      {% if f.state != 'open' %}<span class="badge os">{{ f.state }}</span>{% endif %}
+    </div>
+    <div class="ti mt-s">{{ f.title }}</div>
+    {% if f.detail %}<div class="de">{{ f.detail }}</div>{% endif %}
+    {% if f.recommendation %}<div class="re">▸ {{ f.recommendation }}</div>{% endif %}
+    <div class="meta">
+      <a href="/jobs/{{ f.job_id }}">run #{{ f.job_id }}</a>
+      <span>·</span><span class="mono">{{ f.rule_id }}</span>
+      <span>·</span><span>{{ f.created_at | ago }}</span>
+      <span class="spacer"></span>
+      {% for state, label in [('confirmed','✓ Confirm'), ('dismissed','✕ Dismiss'), ('open','↺ Reopen')] %}
+        {% if f.state != state %}
+        <form method="post" action="/api/findings/{{ f.id }}/state" class="inline-form">
+          <input type="hidden" name="state" value="{{ state }}">
+          <button class="btn sm ghost">{{ label }}</button></form>
+        {% endif %}
+      {% endfor %}
+    </div>
+    {% if f.context %}
+      <details class="mt-s"><summary class="tiny faint" style="cursor:pointer">evidence row</summary>
+        <pre class="raw tiny mt-s">{{ f.context | tojson_safe }}</pre></details>
+    {% endif %}
+  </div>
+  {% endfor %}
+{% else %}
+  <div class="card"><div class="empty"><span class="big">✓</span>
+    No findings raised for this image. Either it is clean, or the plugins whose
+    output the rules understand have not been run yet — try the
+    <strong>Quick Triage</strong> or <strong>Malware Hunt</strong> preset.
+  </div></div>
+{% endif %}
+
+{# =================================================================== #}
+{% elif tab == 'reports' %}
+<div class="grid g2">
+  <div class="card">
+    <h3>Generate a report</h3>
+    <form method="post" action="/api/reports/generate">
+      <input type="hidden" name="evidence_id" value="{{ ev.id }}">
+      <label class="f"><span>Format</span>
+        <select name="format">
+          <option value="html">HTML — full analyst report</option>
+          <option value="pdf">PDF — printable / shareable</option>
+          <option value="json">JSON — machine readable, every row</option>
+          <option value="zip">ZIP bundle — report + CSVs + logs</option>
+        </select>
+      </label>
+      <label class="f"><span>Rows per plugin table</span>
+        <input type="number" name="max_rows" value="300" min="10" max="20000"></label>
+      <label class="checkline mb">
+        <input type="checkbox" name="include_empty" value="1"> Include runs that returned no rows
+      </label>
+      <button class="btn primary">Generate &amp; download</button>
+      <a class="btn ghost" href="/reports/preview/{{ ev.id }}" target="_blank">Preview in browser</a>
+    </form>
+  </div>
+  <div class="card pad0">
+    <div class="card-head"><h3>Previously generated</h3></div>
+    {% if reports %}
+    <div class="tablewrap"><table class="t dense"><tbody>
+      {% for r in reports %}
+      <tr>
+        <td><a href="/api/reports/{{ r.id }}/download">{{ r.title }}</a>
+            <div class="tiny faint">{{ r.path.split('/')[-1] }}</div></td>
+        <td><span class="badge os">{{ r.fmt }}</span></td>
+        <td class="right mono tiny">{{ r.size | bytes }}</td>
+        <td class="tiny faint">{{ r.created_at | ago }}</td>
+        <td class="right"><form method="post" action="/api/reports/{{ r.id }}/delete" class="inline-form">
+          <button class="btn sm danger">✕</button></form></td>
+      </tr>
+      {% endfor %}
+    </tbody></table></div>
+    {% else %}<div class="empty small">No reports generated yet.</div>{% endif %}
+  </div>
+</div>
+
+{# =================================================================== #}
+{% elif tab == 'edit' %}
+<div class="grid g2">
+  <div class="card">
+    <h3>Metadata</h3>
+    <form method="post" action="/api/evidence/{{ ev.id }}/update">
+      <label class="f"><span>Display name</span>
+        <input type="text" name="name" value="{{ ev.name }}"></label>
+      <label class="f"><span>Case</span>
+        <select name="case_id">
+          <option value="">— unassigned —</option>
+          {% for c in cases %}
+            <option value="{{ c.id }}" {{ 'selected' if c.id == ev.case_id }}>{{ c.name }}</option>
+          {% endfor %}
+        </select></label>
+      <label class="f"><span>Operating system</span>
+        <select name="detected_os">
+          {% for o in ['', 'windows', 'linux', 'mac'] %}
+            <option value="{{ o }}" {{ 'selected' if o == ev.detected_os }}>{{ o or '— unknown —' }}</option>
+          {% endfor %}
+        </select></label>
+      <label class="f"><span>Volatility 2 profile</span>
+        <input type="text" name="vol2_profile" value="{{ ev.vol2_profile }}"
+               placeholder="Win7SP1x64" list="proflist">
+        <datalist id="proflist">
+          {% for p in ev.vol2_profile_candidates %}<option value="{{ p }}">{% endfor %}
+        </datalist></label>
+      <label class="f"><span>Notes</span>
+        <textarea name="notes" rows="6">{{ ev.notes }}</textarea></label>
+      <button class="btn primary">Save</button>
+      <a class="btn ghost" href="/api/evidence/{{ ev.id }}?rows=false" target="_blank">Export JSON</a>
+    </form>
+  </div>
+  <div class="card">
+    <h3>Maintenance</h3>
+    <form method="post" action="/api/evidence/{{ ev.id }}/hash" class="mb">
+      <button class="btn">⟳ Recompute MD5 / SHA-256</button></form>
+    <hr class="sep">
+    <h3 style="color:var(--crit)">Danger zone</h3>
+    <p class="small muted">Deleting removes the evidence record, every run, result and
+      finding attached to it. The image file itself is kept unless you tick the box.</p>
+    <form method="post" action="/api/evidence/{{ ev.id }}/delete"
+          onsubmit="return confirm('Delete {{ ev.name }} and all of its runs?')">
+      <label class="checkline mb">
+        <input type="checkbox" name="delete_file" value="1"> Also delete the image file from disk
+      </label>
+      <button class="btn danger">Delete evidence</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  initTableFilter("jobfilter", "jobtable");
+  {% if rollup.running %}
+  attachJobsStream(function (d) {
+    if (d.evidence_id === {{ ev.id }} && d.final) setTimeout(function(){ location.reload(); }, 900);
+  });
+  {% endif %}
+</script>
+{% endblock %}
