@@ -10,10 +10,10 @@
 > *   **Reporting bugs:** If you find a mistake, please open an Issue with a brief description of the problem.
 > *   **Suggesting improvements:** Feel free to submit a Pull Request with fixes or optimizations.
 
+<br>
 
 
----
-
+## Description
 A self-hosted web platform that runs **both** Volatility engines against memory
 images, streams the output live into the browser, stores every run in a
 searchable history, applies an IOC triage ruleset, and exports analyst reports.
