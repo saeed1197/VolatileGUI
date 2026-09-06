@@ -1,15 +1,17 @@
 # VolatileGUI — Volatility 2 & 3 memory analysis platform
+![Alt text](./VolatileGUILogoWordmark.svg)
 
 ## 🤝 Contributions & Disclaimers
 
 > [!WARNING]
 > **Work in Progress (WIP):** This is an experimental project and is actively being updated. Breaking changes may occur, and you should test the code thoroughly before using it in any critical applications.
 
-Additionally, this codebase was built with AI assistance, which means you might encounter unintended behavior or inaccuracies.
+> Additionally, this codebase was built with AI assistance, which means you might encounter unintended behavior or inaccuracies.
+> I am actively looking to improve this repository, and your feedback is invaluable. You can help by:
+> *   **Reporting bugs:** If you find a mistake, please open an Issue with a brief description of the problem.
+> *   **Suggesting improvements:** Feel free to submit a Pull Request with fixes or optimizations.
 
-I am actively looking to improve this repository, and your feedback is invaluable. You can help by:
-*   **Reporting bugs:** If you find a mistake, please open an Issue with a brief description of the problem.
-*   **Suggesting improvements:** Feel free to submit a Pull Request with fixes or optimizations.
+
 
 ---
 
