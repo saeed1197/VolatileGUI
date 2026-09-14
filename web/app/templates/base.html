@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>
+    /* Resolve the theme before first paint so there is no flash of the wrong
+       palette. Stored choice wins; otherwise follow the OS preference. */
+    (function () {
+      try {
+        var t = localStorage.getItem("mf-theme");
+        if (t !== "light" && t !== "dark") {
+          t = (window.matchMedia &&
+               window.matchMedia("(prefers-color-scheme: light)").matches)
+              ? "light" : "dark";
+        }
+        document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {
+        document.documentElement.setAttribute("data-theme", "dark");
+      }
+    })();
+  </script>
+  <title>{% block title %}{{ APP_NAME }}{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#129504;</text></svg>">
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <h1><span class="dot"></span> {{ APP_NAME }}</h1>
+      <p>{{ APP_TAGLINE }}</p>
+    </div>
+    <nav class="nav">
+      <a href="/" class="{% if nav=='dashboard' %}on{% endif %}"><span class="ic">{{ icon('activity') }}</span> Dashboard</a>
+      <a href="/evidence" class="{% if nav=='evidence' %}on{% endif %}"><span class="ic">{{ icon('database') }}</span> Evidence</a>
+      <a href="/cases" class="{% if nav=='cases' %}on{% endif %}"><span class="ic">{{ icon('folder') }}</span> Cases</a>
+
+      <div class="sep">Analysis</div>
+      <a href="/jobs" class="{% if nav=='history' %}on{% endif %}"><span class="ic">{{ icon('clock') }}</span> Run history</a>
+      <a href="/findings" class="{% if nav=='findings' %}on{% endif %}"><span class="ic">{{ icon('flag') }}</span> Findings</a>
+      <a href="/compare" class="{% if nav=='compare' %}on{% endif %}"><span class="ic">{{ icon('exchange') }}</span> Compare runs</a>
+
+      <div class="sep">Reference</div>
+      <a href="/plugins" class="{% if nav=='plugins' %}on{% endif %}"><span class="ic">{{ icon('grid') }}</span> Plugin catalog</a>
+      <a href="/reports" class="{% if nav=='reports' %}on{% endif %}"><span class="ic">{{ icon('file-text') }}</span> Reports</a>
+      <a href="/settings" class="{% if nav=='settings' %}on{% endif %}"><span class="ic">{{ icon('sliders') }}</span> Settings</a>
+      <a href="/api/docs" target="_blank"><span class="ic">{{ icon('external') }}</span> REST API</a>
+    </nav>
+    <div class="sidebar-foot">
+      v{{ VERSION }} · <span id="enginefoot">vol2 + vol3</span>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <h2>{% block heading %}{% endblock %}</h2>
+      <span class="crumb">{% block crumb %}{% endblock %}</span>
+      <span class="spacer"></span>
+      {% block actions %}{% endblock %}
+      <button type="button" class="btn ghost themebtn" onclick="toggleTheme()"
+              title="Switch between light and dark mode"
+              aria-label="Switch between light and dark mode">
+        <span class="th-when-dark"><span class="ic">{{ icon('sun') }}</span> Light</span>
+        <span class="th-when-light"><span class="ic">{{ icon('moon') }}</span> Dark</span>
+      </button>
+    </div>
+    <div class="content">
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</div>
+<div class="toast-wrap"></div>
+<script src="/static/js/app.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 200">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#151b24"/>
+      <stop offset="1" stop-color="#0c0f14"/>
+    </linearGradient>
+    <linearGradient id="ram" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#22d3a7"/>
+      <stop offset="1" stop-color="#3ea6ff"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="30%" cy="20%" r="75%">
+      <stop offset="0" stop-color="#3ea6ff" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#3ea6ff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- icon badge -->
+  <rect x="6" y="6" width="188" height="188" rx="42" fill="url(#bg)"/>
+  <rect x="6" y="6" width="188" height="188" rx="42" fill="url(#glow)"/>
+  <rect x="6" y="6" width="188" height="188" rx="42" fill="none" stroke="#3ea6ff" stroke-opacity="0.25" stroke-width="2"/>
+
+  <g transform="translate(100,133) rotate(-8) scale(0.78)">
+    <rect x="-78" y="-24" width="156" height="48" rx="8" fill="url(#ram)"/>
+    <g fill="#0c0f14" fill-opacity="0.9">
+      <rect x="-70" y="20" width="10" height="14" rx="2"/>
+      <rect x="-52" y="20" width="10" height="14" rx="2"/>
+      <rect x="-34" y="20" width="10" height="14" rx="2"/>
+      <rect x="-16" y="20" width="10" height="14" rx="2"/>
+      <rect x="2"   y="20" width="10" height="14" rx="2"/>
+      <rect x="20"  y="20" width="10" height="14" rx="2"/>
+      <rect x="38"  y="20" width="10" height="14" rx="2"/>
+      <rect x="56"  y="20" width="10" height="14" rx="2"/>
+    </g>
+    <rect x="-40" y="-14" width="34" height="28" rx="3" fill="#0c0f14" fill-opacity="0.55"/>
+    <rect x="6"   y="-14" width="34" height="28" rx="3" fill="#0c0f14" fill-opacity="0.55"/>
+  </g>
+
+  <circle cx="79" cy="76" r="36" fill="#0c0f14" fill-opacity="0.6" stroke="#3ea6ff" stroke-width="9"/>
+  <line x1="104" y1="102" x2="139" y2="137" stroke="#3ea6ff" stroke-width="13" stroke-linecap="round"/>
+  <path d="M55 76 h11 l5 -16 l9 32 l8 -24 l5 8 h15"
+        fill="none" stroke="#22d3a7" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- wordmark -->
+  <text x="228" y="122" font-family="'Segoe UI', Inter, Arial, sans-serif"
+        font-size="72" font-weight="700" fill="#e8edf5">Volatile<tspan fill="#3ea6ff">GUI</tspan></text>
+  <text x="230" y="156" font-family="'Segoe UI', Inter, Arial, sans-serif"
+        font-size="19" fill="#7b8a9d" letter-spacing="2">VOLATILITY 2 &amp; 3 MEMORY FORENSICS</text>
+</svg>

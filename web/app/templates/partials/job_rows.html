@@ -1,0 +1,41 @@
+{% if jobs %}
+<table class="t dense">
+  <thead><tr>
+    <th>#</th><th>Plugin</th><th>Engine</th><th>Status</th>
+    <th class="right">Rows</th><th class="right">Time</th><th>When</th><th></th>
+  </tr></thead>
+  <tbody>
+  {% for j in jobs %}
+    <tr>
+      <td class="mono tiny faint">{{ j.id }}</td>
+      <td>
+        <a href="/jobs/{{ j.id }}">{{ j.plugin_label or j.plugin }}</a>
+        <div class="tiny faint mono">{{ j.plugin }}</div>
+        {% if j.error %}<div class="tiny" style="color:var(--crit)">{{ j.error[:160] }}</div>{% endif %}
+      </td>
+      <td><span class="badge eng-{{ j.engine }}">{{ j.engine }}</span></td>
+      <td>
+        <span class="{{ j.status | status_class }}">{{ j.status }}</span>
+        {% if j.status == 'running' %}
+          <div class="bar mt-s" style="width:80px"><i style="width:{{ j.progress or 0 }}%"></i></div>
+        {% endif %}
+      </td>
+      <td class="right mono">{{ j.row_count | num }}</td>
+      <td class="right mono tiny">{{ j.duration | duration }}</td>
+      <td class="tiny faint nowrap">{{ j.created_at | ago }}</td>
+      <td class="right nowrap">
+        {% if j.status in ('queued','running') %}
+          <form method="post" action="/api/jobs/{{ j.id }}/cancel" class="inline-form">
+            <button class="btn sm danger">Cancel</button></form>
+        {% else %}
+          <form method="post" action="/api/jobs/{{ j.id }}/rerun" class="inline-form">
+            <button class="btn sm ghost">Re-run</button></form>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty small">No runs yet.</div>
+{% endif %}
